@@ -10,3 +10,5 @@ build/
 venv/
 *.epub
 .wrangler/
+target/
+.pytest_cache/
