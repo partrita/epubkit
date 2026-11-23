@@ -97,6 +97,17 @@ def _process_single_epub_task(args: Tuple[str, str, ProcessingOptions, bool]) ->
     return src_path, dst_path, report, elapsed
 
 
+def _unique_destination(dst: Path, taken: Dict[str, str]) -> Path:
+    """Return a destination that no other task uses, adding ' (n)' before the suffix."""
+    stem, suffix = dst.stem, dst.suffix
+    candidate = dst
+    n = 2
+    while str(candidate) in taken:
+        candidate = dst.with_name(f"{stem} ({n}){suffix}")
+        n += 1
+    return candidate
+
+
 def batch_optimize(
     input_paths: List[str],
     output_dir: Optional[str] = None,
@@ -178,9 +189,11 @@ def batch_optimize(
 
         dst_str = str(dst)
         if dst_str in seen_destinations:
-            raise ValueError(
-                f"Duplicate destination path '{dst_str}' for distinct inputs: '{seen_destinations[dst_str]}' and '{src}'"
-            )
+            # Distinct inputs can share a file name (for example two EPUBs given
+            # by path from different folders). Keep both instead of letting one
+            # worker overwrite the other's output.
+            dst = _unique_destination(dst, seen_destinations)
+            dst_str = str(dst)
         seen_destinations[dst_str] = str(src)
 
         # Clone options for this specific file

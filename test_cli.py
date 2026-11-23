@@ -164,3 +164,31 @@ def test_cli_parser_remove_css_flag():
     assert args_keep.remove_unused_css is False
 
 
+def test_duplicate_basenames_get_distinct_destinations():
+    """Two inputs with the same file name must not write the same output file."""
+    tmp_dir = Path(tempfile.mkdtemp())
+    for sub in ("a", "b"):
+        (tmp_dir / sub).mkdir()
+        build_epub(str(tmp_dir / sub / "book.epub"))
+
+    out_dir = tmp_dir / "out"
+    success, fail, results = batch_optimize(
+        input_paths=[
+            str(tmp_dir / "a" / "book.epub"),
+            str(tmp_dir / "b" / "book.epub"),
+        ],
+        output_dir=str(out_dir),
+        workers=2,
+        quiet=True,
+    )
+
+    assert (success, fail) == (2, 0)
+    assert sorted(Path(dst).name for _, dst, _, _ in results) == [
+        "book (2).epub",
+        "book.epub",
+    ]
+    for _, dst, report, _ in results:
+        assert report.success
+        assert os.path.getsize(dst) > 0
+
+
